@@ -29,6 +29,8 @@ class TorManager(private val context: Context) {
     private var torProcess: Process? = null
     private var torJob: Job? = null
 
+    private val publicationTimeoutMs = 10 * 60 * 1000L
+
     @Volatile
     private var isTorPublished = false
 
@@ -68,7 +70,9 @@ class TorManager(private val context: Context) {
                         torProcess = process
                         processStarted = true
 
-                        // Monitor Tor daemon process log output
+                        // Monitor Tor daemon process log output. Hidden-service upload
+                        // messages are emitted at Tor's INFO level, so the torrc below
+                        // deliberately enables INFO logging.
                         launch {
                             try {
                                 process.inputStream.bufferedReader().use { reader ->
@@ -80,6 +84,18 @@ class TorManager(private val context: Context) {
                                 }
                             } catch (e: Exception) {
                                 emitLog("Tor log reader exception: ${e.localizedMessage}")
+                            }
+                        }
+
+                        // Do not turn a daemon crash into a misleading publication
+                        // timeout.  The output reader above preserves Tor's diagnostic
+                        // line and this reports a clear process-exit failure.
+                        launch {
+                            val exitCode = process.waitFor()
+                            if (isActive && !isTorPublished && _torStatus.value.state != TorState.ERROR) {
+                                val message = "Tor daemon stopped before the onion service was published (exit code $exitCode)."
+                                emitLog("[ERROR] $message")
+                                _torStatus.value = TorStatus(state = TorState.ERROR, errorMessage = message)
                             }
                         }
 
@@ -187,7 +203,10 @@ class TorManager(private val context: Context) {
                 errorMessage = if (errMsg.isNotBlank()) errMsg else line
             )
         } else if (line.contains("Uploaded onion service descriptor", ignoreCase = true) ||
+            line.contains("Successfully uploaded onion service descriptor", ignoreCase = true) ||
             line.contains("Published onion service descriptor", ignoreCase = true) ||
+            line.contains("Uploaded hidden service descriptor", ignoreCase = true) ||
+            line.contains("Successfully uploaded hidden service descriptor", ignoreCase = true) ||
             line.contains("Uploaded rendezvous descriptor", ignoreCase = true)) {
             isTorPublished = true
             val onionAddr = readOnionHostname()
@@ -207,16 +226,34 @@ class TorManager(private val context: Context) {
         } else if (line.contains("Bootstrapped")) {
             val match = Regex("Bootstrapped (\\d+)%").find(line)
             val percent = match?.groupValues?.get(1)?.toIntOrNull() ?: 50
-            _torStatus.value = TorStatus(
-                state = TorState.BOOTSTRAPPING,
-                bootstrapProgress = percent
-            )
+            val hostname = readOnionHostname()
+
+            // Tor writes the v3 hostname after it has accepted HiddenServiceDir.
+            // Waiting for a particular human-readable upload log line meant that
+            // a fully bootstrapped daemon could remain at 100% forever without
+            // saving its address or rendering the QR code.  Once Tor is 100%
+            // bootstrapped, expose its valid address immediately; descriptor
+            // propagation continues in the background and may take a short time.
+            if (percent >= 100 && hostname.isNotBlank()) {
+                isTorPublished = true
+                _torStatus.value = TorStatus(
+                    state = TorState.RUNNING,
+                    bootstrapProgress = 100,
+                    onionAddress = hostname
+                )
+                emitLog("Tor bootstrapped; onion address is ready: http://$hostname/")
+            } else {
+                _torStatus.value = TorStatus(
+                    state = TorState.BOOTSTRAPPING,
+                    bootstrapProgress = percent
+                )
+            }
         }
     }
 
     private suspend fun pollForOnionAddress() {
         var attempts = 0
-        val maxAttempts = 120
+        val maxAttempts = (publicationTimeoutMs / 1000).toInt()
         while (attempts < maxAttempts && _torStatus.value.state != TorState.ERROR) {
             delay(1000)
             val hostname = readOnionHostname()
@@ -236,7 +273,7 @@ class TorManager(private val context: Context) {
             if (_torStatus.value.state != TorState.ERROR) {
                 _torStatus.value = TorStatus(
                     state = TorState.ERROR,
-                    errorMessage = "Tor network publication timed out. Check internet connection and retry."
+                    errorMessage = "Tor did not publish the onion service within 10 minutes. Check the Tor logs, network restrictions, and retry."
                 )
                 emitLog("[ERROR] Onion address publication timeout.")
             }
@@ -285,7 +322,10 @@ class TorManager(private val context: Context) {
             # device-wide SOCKS or control port, as that can break Tor Browser.
             SocksPort 0
             ControlPort 0
-            Log notice stdout
+            # Tor reports hidden-service descriptor uploads at INFO level.  Using
+            # NOTICE here makes a successful publication indistinguishable from a
+            # timeout to the app because the upload event is never received.
+            Log info stdout
             SafeLogging 1
         """.trimIndent()
         torrc.writeText(configContent)

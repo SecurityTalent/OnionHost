@@ -2,23 +2,35 @@ package com.onionhost.app.ui.about
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun AboutScreen() {
+    val uriHandler = LocalUriHandler.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -32,7 +44,7 @@ fun AboutScreen() {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "OnionHost v1.0.0",
+            text = "OnionHost v1.0.2",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -58,5 +70,39 @@ fun AboutScreen() {
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Created by Security Talent",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        TextButton(onClick = { uriHandler.openUri("https://securitytalent.net") }) {
+            Text("securitytalent.net")
+        }
+
+        Text(
+            text = "Follow Security Talent",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        SocialLink("X (Twitter)", Icons.Filled.AlternateEmail, "https://x.com/Securi3yTalent")
+        SocialLink("GitHub", Icons.Filled.Code, "https://github.com/securityTalent/")
+        SocialLink("Telegram", Icons.AutoMirrored.Filled.Send, "https://t.me/Securi3yTalent")
+        SocialLink("Facebook", Icons.Filled.ThumbUp, "https://www.facebook.com/Securi3ytalent")
+        SocialLink("YouTube", Icons.Filled.PlayCircle, "https://www.youtube.com/@SecurityTalent")
+        SocialLink("Instagram", Icons.Filled.PhotoCamera, "https://www.instagram.com/Securi3ytalent")
+    }
+}
+
+@Composable
+private fun SocialLink(label: String, icon: ImageVector, url: String) {
+    val uriHandler = LocalUriHandler.current
+
+    TextButton(onClick = { uriHandler.openUri(url) }) {
+        Icon(imageVector = icon, contentDescription = "$label profile")
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(label)
     }
 }

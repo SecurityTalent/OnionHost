@@ -236,7 +236,7 @@ fun HomeScreen(
                         }
 
                         // QR Code display
-                        website.onionAddress.generateQrCodeBitmap()?.let { qrBitmap ->
+                        "http://${website.onionAddress}".generateQrCodeBitmap()?.let { qrBitmap ->
                             Spacer(modifier = Modifier.height(16.dp))
                             Box(
                                 modifier = Modifier.fillMaxWidth(),
