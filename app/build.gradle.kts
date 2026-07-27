@@ -106,6 +106,9 @@ dependencies {
     // QR Code
     implementation(libs.zxing.core)
 
+    // BouncyCastle Security Provider for SHA3 & Tor Crypto
+    implementation("org.bouncycastle:bcprov-jdk18on:1.77")
+
     // Async & Background
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.work.runtime.ktx)

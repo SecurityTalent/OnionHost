@@ -134,6 +134,14 @@ class OnionHostingService : Service() {
                     start()
                 }
 
+                // Collect detailed Tor logs into database
+                serviceScope.launch {
+                    torManager.torLogFlow.collect { logMsg ->
+                        val level = if (logMsg.contains("[ERROR]")) LogLevel.ERROR else LogLevel.TOR
+                        logDao.insertLog(LogEntity(level = level, tag = "Tor", message = logMsg))
+                    }
+                }
+
                 // Start Tor daemon & provision Hidden Service
                 logDao.insertLog(LogEntity(level = LogLevel.TOR, tag = "Tor", message = "Bootstrapping Tor Hidden Service for port ${website.port}..."))
                 torManager.startTor(website.port, serviceScope)
@@ -150,6 +158,7 @@ class OnionHostingService : Service() {
 
                     if (status.onionAddress.isNotBlank() && status.onionAddress != website.onionAddress) {
                         websiteDao.updateWebsite(website.copy(onionAddress = status.onionAddress))
+                        logDao.insertLog(LogEntity(level = LogLevel.INFO, tag = "Tor", message = "Published Onion Address saved to DB: ${status.onionAddress}"))
                     }
 
                     if (status.state == TorState.ERROR) {
