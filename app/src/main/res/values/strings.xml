@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">OnionHost</string>
+    <string name="notification_channel_name">OnionHost Service</string>
+    <string name="notification_channel_desc">Shows hosting status and controls for Tor Onion Service</string>
+    <string name="service_running">OnionHost is actively serving files over Tor</string>
+    <string name="stop_service">Stop Hosting</string>
+    <string name="restart_service">Restart Service</string>
+</resources>
