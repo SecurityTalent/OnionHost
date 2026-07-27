@@ -23,11 +23,10 @@ fun AboutScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Security,
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(id = com.onionhost.app.R.drawable.app_logo),
             contentDescription = "OnionHost Logo",
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.primary
+            modifier = Modifier.size(80.dp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
