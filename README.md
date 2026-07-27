@@ -1,6 +1,10 @@
-# OnionHost 🧅📱
+# OnionHost 🧅
 
 **OnionHost** is a production-ready, open-source Android application that enables non-technical and advanced users alike to host static websites, documents, media files, and archives directly from their smartphone over the **Tor Network** using v3 Onion Services.
+
+[![Download APK](https://img.shields.io/badge/Download-OnionHost%20APK%20v1.0.0-purple?style=for-the-badge&logo=android)](releases/OnionHost-v1.0.0-debug.apk)
+
+📥 **[Download Latest OnionHost APK (v1.0.0)](releases/OnionHost-v1.0.0-debug.apk)** (Direct APK File - 18.9 MB)
 
 ---
 

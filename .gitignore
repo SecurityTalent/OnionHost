@@ -6,6 +6,7 @@
 /.navigation
 /captures
 *.apk
+!releases/*.apk
 *.aar
 *.klib
 local.properties
