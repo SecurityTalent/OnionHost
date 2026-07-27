@@ -152,6 +152,10 @@ class OnionHostingService : Service() {
                         websiteDao.updateWebsite(website.copy(onionAddress = status.onionAddress))
                     }
 
+                    if (status.state == TorState.ERROR) {
+                        logDao.insertLog(LogEntity(level = LogLevel.ERROR, tag = "Tor", message = "Tor error: ${status.errorMessage ?: "Unknown Tor error"}"))
+                    }
+
                     updateNotification(text)
                 }
 

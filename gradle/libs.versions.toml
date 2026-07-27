@@ -15,11 +15,13 @@ nanohttpd = "2.3.1"
 zxing = "3.5.3"
 coroutines = "1.8.0"
 workManager = "2.9.0"
+documentfile = "1.0.1"
 junit = "4.13.2"
 androidxJunit = "1.1.5"
 espresso = "3.5.1"
 
 [libraries]
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }

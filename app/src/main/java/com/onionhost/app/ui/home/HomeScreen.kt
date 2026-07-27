@@ -72,18 +72,30 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = "OnionHost",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.onionhost.app.R.drawable.app_logo),
+                    contentDescription = "OnionHost Logo",
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(8.dp))
                 )
-                Text(
-                    text = "Anonymous Tor Web Server",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
+                Column {
+                    Text(
+                        text = "OnionHost",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "Anonymous Tor Web Server",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
             }
             IconButton(onClick = { /* Refresh metrics */ }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh")
@@ -143,6 +155,15 @@ fun HomeScreen(
                     )
                 }
 
+                if (torStatus.state == TorState.ERROR && !torStatus.errorMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = torStatus.errorMessage ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFFFCA5A5)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // One Button Host Control
@@ -167,7 +188,7 @@ fun HomeScreen(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Start Hosting")
+                        Text(if (torStatus.state == TorState.ERROR) "Retry Hosting" else "Start Hosting")
                     }
                 }
             }

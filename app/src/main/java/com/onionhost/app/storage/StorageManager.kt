@@ -71,10 +71,13 @@ class StorageManager(private val context: Context) {
     }
 
     private fun copyFolderFromUri(folderUri: Uri, targetDir: File) {
-        // DocumentFile parsing or Uri stream copy
-        val dummyIndex = File(targetDir, "index.html")
-        if (!dummyIndex.exists()) {
-            dummyIndex.writeText(
+        val docTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, folderUri)
+        if (docTree != null && docTree.exists()) {
+            copyDocumentDirectory(docTree, targetDir)
+        }
+        val indexFile = File(targetDir, "index.html")
+        if (!indexFile.exists() && (targetDir.listFiles() == null || targetDir.listFiles()!!.isEmpty())) {
+            indexFile.writeText(
                 """
                 <!DOCTYPE html>
                 <html>
@@ -89,6 +92,28 @@ class StorageManager(private val context: Context) {
                 </html>
                 """.trimIndent()
             )
+        }
+    }
+
+    private fun copyDocumentDirectory(sourceDir: androidx.documentfile.provider.DocumentFile, targetDir: File) {
+        targetDir.mkdirs()
+        for (file in sourceDir.listFiles()) {
+            val fileName = file.name ?: continue
+            if (file.isDirectory) {
+                val subDir = File(targetDir, fileName)
+                copyDocumentDirectory(file, subDir)
+            } else if (file.isFile) {
+                val destFile = File(targetDir, fileName)
+                try {
+                    context.contentResolver.openInputStream(file.uri)?.use { inputStream ->
+                        FileOutputStream(destFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 
