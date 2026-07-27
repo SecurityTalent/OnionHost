@@ -55,11 +55,9 @@ object TorBinaryInstaller {
             return@withContext extractedFromAssets
         }
 
-        // 4. Provision standalone fallback executable daemon
-        val provisionedBinary = provisionFallbackTorBinary(torDir)
-        provisionedBinary.setExecutable(true, false)
-        Log.i(TAG, "Provisioned fallback Tor daemon binary at ${provisionedBinary.absolutePath}")
-        provisionedBinary
+        throw IllegalStateException(
+            "No compatible bundled Tor daemon was found for ${Build.SUPPORTED_ABIS.joinToString()}."
+        )
     }
 
     private fun extractFromAssets(context: Context, targetDir: File): File? {
@@ -92,31 +90,4 @@ object TorBinaryInstaller {
         return null
     }
 
-    private fun provisionFallbackTorBinary(targetDir: File): File {
-        val scriptFile = File(targetDir, "libtor.so")
-        try {
-            val scriptContent = """
-                #!/system/bin/sh
-                echo "Jul 27 17:40:00.000 [notice] Tor 0.4.8.10 (git-6f2a8f50) running on Linux."
-                echo "Jul 27 17:40:00.100 [notice] Parsing GEOIP files..."
-                echo "Jul 27 17:40:00.200 [notice] Bootstrapped 5% (starting): Starting"
-                echo "Jul 27 17:40:00.400 [notice] Bootstrapped 10% (conn_done): Connected to a relay"
-                echo "Jul 27 17:40:00.600 [notice] Bootstrapped 50% (loading_descriptors): Loading relay descriptors"
-                echo "Jul 27 17:40:00.800 [notice] Bootstrapped 90% (ap_handshake_done): Handshake finished"
-                echo "Jul 27 17:40:01.000 [notice] Bootstrapped 100% (done): Done"
-                echo "Jul 27 17:40:01.100 [notice] Published onion service descriptor"
-
-                while true; do
-                    sleep 3600
-                done
-            """.trimIndent().replace("\r\n", "\n")
-
-            scriptFile.writeText(scriptContent)
-            scriptFile.setExecutable(true, false)
-            scriptFile.setReadable(true, false)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to provision fallback Tor binary", e)
-        }
-        return scriptFile
-    }
 }

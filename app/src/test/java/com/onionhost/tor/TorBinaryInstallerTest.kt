@@ -9,7 +9,6 @@ import java.io.File
 class TorBinaryInstallerTest {
 
     @get:Rule
-    @JvmField
     val tempFolder = TemporaryFolder()
 
     @Test

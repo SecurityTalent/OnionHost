@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.io.IOException
 
 class TorManager(private val context: Context) {
 
@@ -45,10 +46,11 @@ class TorManager(private val context: Context) {
 
         torJob = coroutineScope.launch(Dispatchers.IO) {
             try {
-                // 1. Provision Ed25519 keys for Hidden Service directory if not existing
-                emitLog("Provisioning Tor v3 Hidden Service keys at ${hiddenServiceDir.absolutePath}...")
-                val preProvisionedAddress = TorV3KeyUtil.provisionTorV3Keys(hiddenServiceDir)
-                emitLog("Hidden Service provisioned address: $preProvisionedAddress")
+                // Tor owns the hidden-service key material.  Do not synthesize these files:
+                // a hostname is public only after the real daemon has started and published
+                // its descriptor to the Tor network.
+                emitLog("Preparing Tor v3 Hidden Service directory at ${hiddenServiceDir.absolutePath}...")
+                removeLegacyGeneratedKeys()
 
                 // 2. Create Tor configuration file (torrc)
                 val torrcFile = createTorConfigFile(localPort)
@@ -61,19 +63,8 @@ class TorManager(private val context: Context) {
                 if (torExecutable != null && torExecutable.exists()) {
                     try {
                         emitLog("Launching Tor daemon binary from ${torExecutable.absolutePath}...")
-                        val processBuilder = ProcessBuilder(
-                            torExecutable.absolutePath,
-                            "-f", torrcFile.absolutePath
-                        ).apply {
-                            directory(torDir)
-                            environment()["HOME"] = torDir.absolutePath
-                            environment()["TMPDIR"] = context.cacheDir.absolutePath
-                            environment()["LD_LIBRARY_PATH"] = context.applicationInfo.nativeLibraryDir
-                            redirectErrorStream(true)
-                        }
-
                         _torStatus.value = TorStatus(state = TorState.BOOTSTRAPPING, bootstrapProgress = 15)
-                        val process = processBuilder.start()
+                        val process = startTorProcess(torExecutable, torrcFile)
                         torProcess = process
                         processStarted = true
 
@@ -95,29 +86,17 @@ class TorManager(private val context: Context) {
                         // Poll & wait for Tor process to publish Hidden Service descriptor to network
                         pollForOnionAddress()
                     } catch (e: Exception) {
-                        emitLog("[WARN] Direct process execution restricted by OS (${e.localizedMessage}). Activating embedded Tor service mode.")
+                        emitLog("[WARN] Tor daemon launch failed: ${e.localizedMessage}")
                         processStarted = false
                     }
                 }
 
-                // If process execution is restricted by OS or SELinux policy
+                // Android must run a genuine Tor binary.  A generated hostname or a shell
+                // script cannot create an onion service visible to Tor Browser users.
                 if (!processStarted) {
-                    emitLog("Activating Android-compatible embedded Tor Hidden Service controller...")
-                    _torStatus.value = TorStatus(state = TorState.BOOTSTRAPPING, bootstrapProgress = 30)
-                    delay(400)
-                    _torStatus.value = TorStatus(state = TorState.BOOTSTRAPPING, bootstrapProgress = 70)
-                    delay(400)
-
-                    val onionAddr = readOnionHostname()
-                    if (onionAddr.isNotBlank()) {
-                        isTorPublished = true
-                        _torStatus.value = TorStatus(
-                            state = TorState.RUNNING,
-                            bootstrapProgress = 100,
-                            onionAddress = onionAddr
-                        )
-                        emitLog("Tor v3 Onion Service active at http://$onionAddr/")
-                    }
+                    val message = "Unable to start the bundled Tor daemon. This device cannot publish an onion service until a compatible Tor binary is bundled."
+                    emitLog("[ERROR] $message")
+                    _torStatus.value = TorStatus(state = TorState.ERROR, errorMessage = message)
                 }
 
             } catch (e: Exception) {
@@ -136,6 +115,68 @@ class TorManager(private val context: Context) {
         _torLogFlow.tryEmit(msg)
     }
 
+    /**
+     * Some Android versions refuse to exec a PIE binary whose file name ends in
+     * .so.  The bundled Tor artifact is a PIE executable (ET_DYN), so retrying
+     * it through the system dynamic linker is required on those devices.
+     */
+    @Throws(IOException::class)
+    private fun startTorProcess(torExecutable: File, torrcFile: File): Process {
+        val baseArgs = listOf(torExecutable.absolutePath, "-f", torrcFile.absolutePath)
+        val attempts = mutableListOf(baseArgs)
+
+        if (TorBinaryAnalyzer.analyzeBinary(context, torExecutable).type == BinaryType.SHARED_LIBRARY) {
+            val linker = if (android.os.Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()) {
+                "/system/bin/linker64"
+            } else {
+                "/system/bin/linker"
+            }
+            if (File(linker).canExecute()) {
+                attempts += listOf(linker) + baseArgs
+            }
+        }
+
+        var lastError: IOException? = null
+        for (command in attempts) {
+            try {
+                emitLog("Launching Tor daemon: ${command.first()}")
+                return ProcessBuilder(command).apply {
+                    directory(torDir)
+                    environment()["HOME"] = torDir.absolutePath
+                    environment()["TMPDIR"] = context.cacheDir.absolutePath
+                    environment()["LD_LIBRARY_PATH"] = context.applicationInfo.nativeLibraryDir
+                    redirectErrorStream(true)
+                }.start()
+            } catch (e: IOException) {
+                lastError = e
+                emitLog("[WARN] Launch attempt failed: ${e.localizedMessage}")
+            }
+        }
+        throw lastError ?: IOException("No supported Tor launch command was available.")
+    }
+
+    /** Removes only key files written by OnionHost's old non-Tor generator. */
+    private fun removeLegacyGeneratedKeys() {
+        val secretKey = File(hiddenServiceDir, "hs_ed25519_secret_key")
+        val legacyHeader = "tag: secret-key v3".toByteArray(Charsets.US_ASCII)
+        val isLegacy = try {
+            secretKey.exists() && secretKey.inputStream().use { input ->
+                val prefix = ByteArray(legacyHeader.size)
+                input.read(prefix) == prefix.size && prefix.contentEquals(legacyHeader)
+            }
+        } catch (_: Exception) {
+            false
+        }
+        if (isLegacy) {
+            listOf(
+                "hs_ed25519_secret_key",
+                "hs_ed25519_public_key",
+                "hostname"
+            ).forEach { File(hiddenServiceDir, it).delete() }
+            emitLog("Removed legacy generated hidden-service keys; Tor will create real v3 keys.")
+        }
+    }
+
     private fun parseTorLogLine(line: String) {
         emitLog("[Tor Log] $line")
 
@@ -145,7 +186,9 @@ class TorManager(private val context: Context) {
                 state = TorState.ERROR,
                 errorMessage = if (errMsg.isNotBlank()) errMsg else line
             )
-        } else if (line.contains("Bootstrapped 100%") || line.contains("Uploaded onion service descriptor") || line.contains("Published onion service descriptor")) {
+        } else if (line.contains("Uploaded onion service descriptor", ignoreCase = true) ||
+            line.contains("Published onion service descriptor", ignoreCase = true) ||
+            line.contains("Uploaded rendezvous descriptor", ignoreCase = true)) {
             isTorPublished = true
             val onionAddr = readOnionHostname()
             if (onionAddr.isNotBlank()) {
@@ -178,15 +221,13 @@ class TorManager(private val context: Context) {
             delay(1000)
             val hostname = readOnionHostname()
             if (hostname.isNotBlank() && isTorPublished) {
-                if (TorV3KeyUtil.validateHiddenServiceDirectory(hiddenServiceDir)) {
-                    _torStatus.value = TorStatus(
-                        state = TorState.RUNNING,
-                        bootstrapProgress = 100,
-                        onionAddress = hostname
-                    )
-                    emitLog("Onion address verified and descriptor published on Tor network: http://$hostname/")
-                    return
-                }
+                _torStatus.value = TorStatus(
+                    state = TorState.RUNNING,
+                    bootstrapProgress = 100,
+                    onionAddress = hostname
+                )
+                emitLog("Onion address verified and descriptor published on Tor network: http://$hostname/")
+                return
             }
             attempts++
         }
@@ -215,7 +256,7 @@ class TorManager(private val context: Context) {
         val hostnameFile = File(hiddenServiceDir, "hostname")
         if (hostnameFile.exists()) {
             val text = hostnameFile.readText().trim()
-            if (isValidTorV3Address(text) && TorV3KeyUtil.validateHiddenServiceDirectory(hiddenServiceDir)) {
+            if (isValidTorV3Address(text)) {
                 return text
             }
         }
@@ -240,8 +281,10 @@ class TorManager(private val context: Context) {
             HiddenServiceDir ${hiddenServiceDir.absolutePath}
             HiddenServicePort 80 127.0.0.1:$localPort
             HiddenServiceVersion 3
-            SocksPort 9050
-            ControlPort 9051
+            # This process only publishes the hidden service. Do not reserve a
+            # device-wide SOCKS or control port, as that can break Tor Browser.
+            SocksPort 0
+            ControlPort 0
             Log notice stdout
             SafeLogging 1
         """.trimIndent()

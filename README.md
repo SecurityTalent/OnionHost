@@ -2,9 +2,19 @@
 
 **OnionHost** is a production-ready, open-source Android application that enables non-technical and advanced users alike to host static websites, documents, media files, and archives directly from their smartphone over the **Tor Network** using v3 Onion Services.
 
-[![Download APK](https://img.shields.io/badge/Download-OnionHost%20APK%20v1.0.0-purple?style=for-the-badge&logo=android)](releases/OnionHost-v1.0.0-debug.apk)
+[![Download APK](https://img.shields.io/badge/Download-OnionHost%20APK%20v1.0.1-purple?style=for-the-badge&logo=android)](releases/OnionHost-v1.0.1-debug.apk)
 
-📥 **[Download Latest OnionHost APK (v1.0.0)](releases/OnionHost-v1.0.0-debug.apk)** (Direct APK File - 18.9 MB)
+📥 **[Download Latest OnionHost APK (v1.0.1)](releases/OnionHost-v1.0.1-debug.apk)** (Debug APK for Android 8+)
+
+---
+
+## Download and Tor Browser access
+
+1. Install the APK and allow installation from the selected file manager when Android asks.
+2. Import a website and start hosting. Do not share the address until the app reports that the onion-service descriptor has been published.
+3. Open the generated `http://…onion/` address only in a connected Tor Browser.
+
+OnionHost does not reserve a device-wide SOCKS port, so it can run alongside Tor Browser. The phone must remain powered on, connected to the internet, and exempt from battery restrictions while hosting.
 
 ---
 
