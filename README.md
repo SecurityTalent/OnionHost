@@ -6,6 +6,12 @@ OnionHost turns an Android phone into a private static-file server published as 
 
 > **Current source version:** 1.1.1 (version code 5) · **Minimum Android:** 8.0 / API 26
 
+## Proof of concept (POC)
+
+The screenshot below shows the complete flow: OnionHost is hosting on the phone, the generated Onion address and QR code are visible, and Tor Browser is opening the hosted directory.
+
+![OnionHost POC: Android host and Tor Browser visitor](POC/POC.png)
+
 ## Download and install
 
 **[Download the latest installable APK](https://github.com/SecurityTalent/OnionHost/raw/main/releases/OnionHost-latest.apk)**
@@ -177,6 +183,15 @@ graph TD
 | `tor/` | Tor process, hidden-service configuration, publication status, and Onion hostname handling. |
 | `storage/` and `security/` | Content import, ZIP extraction, MIME checks, path safety, and rate limiting. |
 | `database/` and `analytics/` | Local website configuration, logs, and privacy-preserving statistics. |
+
+## Responsible Use
+
+OnionHost is intended for legitimate privacy-preserving hosting,
+development, testing, research, and communication purposes.
+
+Users are responsible for everything they publish or share through
+their own Onion Service. The developers and maintainers do not
+endorse or authorize unlawful use of the software.
 
 ## License
 
