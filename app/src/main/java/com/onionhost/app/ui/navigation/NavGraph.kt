@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.onionhost.app.ui.about.AboutScreen
 import com.onionhost.app.ui.analytics.AnalyticsScreen
 import com.onionhost.app.ui.analytics.AnalyticsViewModel
+import com.onionhost.app.ui.chat.AnonymousChatScreen
 import com.onionhost.app.ui.home.HomeScreen
 import com.onionhost.app.ui.home.HomeViewModel
 import com.onionhost.app.ui.logs.LogsScreen
@@ -28,6 +29,7 @@ import com.onionhost.app.ui.websites.WebsitesViewModel
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Home", Icons.Default.Home)
+    object Chat : Screen("chat", "Chat", Icons.Default.Chat)
     object Websites : Screen("websites", "Websites", Icons.Default.Web)
     object Analytics : Screen("analytics", "Analytics", Icons.Default.BarChart)
     object Logs : Screen("logs", "Logs", Icons.Default.Terminal)
@@ -37,6 +39,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 
 val navItems = listOf(
     Screen.Home,
+    Screen.Chat,
     Screen.Websites,
     Screen.Analytics,
     Screen.Logs,
@@ -56,7 +59,10 @@ fun AppNavigation() {
                 navItems.forEach { screen ->
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
+                        // Six destinations fit comfortably on a phone only as
+                        // icons. The previous labels were wrapping/clipping.
+                        label = null,
+                        alwaysShowLabel = false,
                         selected = currentRoute == screen.route,
                         onClick = {
                             navController.navigate(screen.route) {
@@ -80,6 +86,10 @@ fun AppNavigation() {
             composable(Screen.Home.route) {
                 val vm: HomeViewModel = hiltViewModel()
                 HomeScreen(viewModel = vm)
+            }
+            composable(Screen.Chat.route) {
+                val vm: HomeViewModel = hiltViewModel()
+                AnonymousChatScreen(viewModel = vm)
             }
             composable(Screen.Websites.route) {
                 val vm: WebsitesViewModel = hiltViewModel()

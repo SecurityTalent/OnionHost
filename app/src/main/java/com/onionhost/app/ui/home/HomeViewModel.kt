@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.onionhost.app.database.entity.WebsiteEntity
 import com.onionhost.app.database.entity.WebsiteType
 import com.onionhost.app.hosting.OnionHostingService
+import com.onionhost.app.http.AnonymousChatStore
 import com.onionhost.app.repository.WebsiteRepository
 import com.onionhost.app.storage.StorageManager
 import com.onionhost.app.tor.TorManager
@@ -36,6 +37,17 @@ class HomeViewModel @Inject constructor(
 
     val torStatus: StateFlow<TorStatus> = torManager.torStatus
 
+    private val selectedChatRoom = MutableStateFlow("")
+    val activeChatRoom: StateFlow<String> = combine(activeWebsite, selectedChatRoom) { website, selected ->
+        selected.ifBlank { website?.id.orEmpty() }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, "")
+
+    val chatMessages: StateFlow<List<AnonymousChatStore.Message>> = activeChatRoom
+        .flatMapLatest { room ->
+            if (room.isBlank()) flowOf(emptyList()) else AnonymousChatStore.messagesFlow(room)
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     private val _systemMetrics = MutableStateFlow(SystemMetrics())
     val systemMetrics: StateFlow<SystemMetrics> = _systemMetrics.asStateFlow()
 
@@ -60,6 +72,24 @@ class HomeViewModel @Inject constructor(
 
     fun stopHosting(context: Context) {
         OnionHostingService.stopService(context)
+    }
+
+    fun restartHosting(context: Context) {
+        activeWebsite.value?.id?.let { OnionHostingService.restartService(context, it) }
+    }
+
+    fun sendChatMessage(text: String) {
+        val room = activeChatRoom.value.ifBlank { return }
+        val message = text.trim()
+        if (message.isNotEmpty()) AnonymousChatStore.add(room, message)
+    }
+
+    fun deleteChatMessage(messageId: Long) {
+        activeChatRoom.value.takeIf { it.isNotBlank() }?.let { AnonymousChatStore.deleteByHost(it, messageId) }
+    }
+
+    fun selectChatRoom(name: String) {
+        selectedChatRoom.value = name.lowercase().filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(80)
     }
 
     fun importAndHost(context: Context, uri: Uri, type: WebsiteType) {

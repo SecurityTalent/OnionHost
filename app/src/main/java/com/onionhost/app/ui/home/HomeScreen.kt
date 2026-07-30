@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,7 +28,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.onionhost.app.common.generateQrCodeBitmap
 import com.onionhost.app.database.entity.WebsiteType
 import com.onionhost.app.tor.TorState
@@ -97,8 +97,14 @@ fun HomeScreen(
                     )
                 }
             }
-            IconButton(onClick = { /* Refresh metrics */ }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+            IconButton(
+                enabled = activeWebsite != null,
+                onClick = {
+                    viewModel.restartHosting(context)
+                    Toast.makeText(context, "Restarting Onion server…", Toast.LENGTH_SHORT).show()
+                }
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Restart server")
             }
         }
 
@@ -235,9 +241,30 @@ fun HomeScreen(
                             }
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val inviteUrl = "http://${website.onionAddress}/chat/${website.id}"
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Anonymous Chat Invite", inviteUrl))
+                                Toast.makeText(context, "Anonymous chat invite copied!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Chat, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Copy Anonymous Chat Invite")
+                        }
+                        Text(
+                            "This copies the group-chat invite. The QR code below is for the website server.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
                         // QR Code display
                         "http://${website.onionAddress}".generateQrCodeBitmap()?.let { qrBitmap ->
                             Spacer(modifier = Modifier.height(16.dp))
+                            Text("Website Server QR Code", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                             Box(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentAlignment = Alignment.Center
@@ -256,40 +283,41 @@ fun HomeScreen(
             }
         }
 
-        // Quick Import Buttons
-        Text(
-            text = "Select Content to Host",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = { folderPickerLauncher.launch(null) },
-                modifier = Modifier.weight(1f)
+        // Import actions are full-width so their icons and labels remain
+        // readable on narrow phones.
+        Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(Icons.Default.Folder, contentDescription = null)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Folder", fontSize = 12.sp)
-            }
-            OutlinedButton(
-                onClick = { filePickerLauncher.launch("application/zip") },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.FolderZip, contentDescription = null)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("ZIP File", fontSize = 12.sp)
-            }
-            OutlinedButton(
-                onClick = { filePickerLauncher.launch("*/*") },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.InsertDriveFile, contentDescription = null)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Single File", fontSize = 12.sp)
+                Text(
+                    text = "Select Content to Host",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Choose a folder, ZIP archive, or a single file.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ImportContentButton(
+                    label = "Choose Folder",
+                    description = "Host a complete website folder",
+                    icon = Icons.Default.Folder,
+                    onClick = { folderPickerLauncher.launch(null) }
+                )
+                ImportContentButton(
+                    label = "Choose ZIP File",
+                    description = "Extract and host a ZIP archive",
+                    icon = Icons.Default.FolderZip,
+                    onClick = { filePickerLauncher.launch("application/zip") }
+                )
+                ImportContentButton(
+                    label = "Choose Single File",
+                    description = "Host an HTML file, document, or media file",
+                    icon = Icons.Default.InsertDriveFile,
+                    onClick = { filePickerLauncher.launch("*/*") }
+                )
             }
         }
 
@@ -316,6 +344,28 @@ fun HomeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ImportContentButton(
+    label: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontWeight = FontWeight.SemiBold)
+            Text(description, style = MaterialTheme.typography.labelSmall)
+        }
+        Icon(Icons.Default.ChevronRight, contentDescription = null)
     }
 }
 

@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -68,6 +69,14 @@ class OnionHostingService : Service() {
             }
             context.startService(intent)
         }
+
+        fun restartService(context: Context, websiteId: String) {
+            val intent = Intent(context, OnionHostingService::class.java).apply {
+                action = ACTION_RESTART
+                putExtra(EXTRA_WEBSITE_ID, websiteId)
+            }
+            context.startService(intent)
+        }
     }
 
     override fun onCreate() {
@@ -84,9 +93,7 @@ class OnionHostingService : Service() {
             }
             ACTION_STOP -> stopHosting()
             ACTION_RESTART -> {
-                val websiteId = activeWebsite?.id
-                stopHosting()
-                startHosting(websiteId)
+                restartHosting(intent?.getStringExtra(EXTRA_WEBSITE_ID) ?: activeWebsite?.id)
             }
         }
         return START_STICKY
@@ -184,6 +191,18 @@ class OnionHostingService : Service() {
             logDao.insertLog(LogEntity(level = LogLevel.INFO, tag = "Service", message = "Hosting stopped."))
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+        }
+    }
+
+    private fun restartHosting(websiteId: String?) {
+        if (websiteId == null) return
+        serviceScope.launch {
+            httpServer?.stop()
+            httpServer = null
+            torManager.stopTor()
+            delay(500)
+            logDao.insertLog(LogEntity(level = LogLevel.INFO, tag = "Service", message = "Restarting hosting service."))
+            startHosting(websiteId)
         }
     }
 

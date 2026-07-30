@@ -44,7 +44,7 @@ fun AboutScreen() {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "OnionHost v1.0.2",
+            text = "OnionHost v1.1.0",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -87,12 +87,18 @@ fun AboutScreen() {
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold
         )
-        SocialLink("X (Twitter)", Icons.Filled.AlternateEmail, "https://x.com/Securi3yTalent")
-        SocialLink("GitHub", Icons.Filled.Code, "https://github.com/securityTalent/")
-        SocialLink("Telegram", Icons.AutoMirrored.Filled.Send, "https://t.me/Securi3yTalent")
-        SocialLink("Facebook", Icons.Filled.ThumbUp, "https://www.facebook.com/Securi3ytalent")
-        SocialLink("YouTube", Icons.Filled.PlayCircle, "https://www.youtube.com/@SecurityTalent")
-        SocialLink("Instagram", Icons.Filled.PhotoCamera, "https://www.instagram.com/Securi3ytalent")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SocialLink("X (Twitter)", Icons.Filled.AlternateEmail, "https://x.com/Securi3yTalent")
+            SocialLink("GitHub", Icons.Filled.Code, "https://github.com/securityTalent/")
+            SocialLink("Telegram", Icons.AutoMirrored.Filled.Send, "https://t.me/Securi3yTalent")
+            SocialLink("Facebook", Icons.Filled.ThumbUp, "https://www.facebook.com/Securi3ytalent")
+            SocialLink("YouTube", Icons.Filled.PlayCircle, "https://www.youtube.com/@SecurityTalent")
+            SocialLink("Instagram", Icons.Filled.PhotoCamera, "https://www.instagram.com/Securi3ytalent")
+        }
     }
 }
 
@@ -100,9 +106,7 @@ fun AboutScreen() {
 private fun SocialLink(label: String, icon: ImageVector, url: String) {
     val uriHandler = LocalUriHandler.current
 
-    TextButton(onClick = { uriHandler.openUri(url) }) {
+    IconButton(onClick = { uriHandler.openUri(url) }) {
         Icon(imageVector = icon, contentDescription = "$label profile")
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(label)
     }
 }
