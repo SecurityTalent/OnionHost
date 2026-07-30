@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,6 +43,7 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
     var draft by rememberSaveable { mutableStateOf("") }
     var roomName by rememberSaveable { mutableStateOf("") }
     var chatTab by rememberSaveable { mutableStateOf(0) }
+    val savedChatListScroll = rememberScrollState()
     val context = LocalContext.current
     val isPersonalChat = activeRoom.startsWith("personal-") || activeRoom.startsWith("private-")
     val isChatInSelectedTab = (chatTab == 0 && isPersonalChat) || (chatTab == 1 && !isPersonalChat && activeRoom.isNotBlank())
@@ -93,19 +96,21 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     val personalRooms = rooms.filter { it.startsWith("personal-") || it.startsWith("private-") }
                     if (personalRooms.isNotEmpty()) {
                         Text("Saved personal chats", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        personalRooms.takeLast(4).forEach { savedRoom ->
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }, modifier = Modifier.weight(1f)) {
-                                    Text(savedRoom.removePrefix("personal-").removePrefix("private-").take(18))
-                                }
-                                IconButton(
-                                    enabled = activeWebsite?.onionAddress?.isNotBlank() == true,
-                                    onClick = {
-                                        val invite = "http://${activeWebsite?.onionAddress}/chat/$savedRoom"
-                                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                                            .setPrimaryClip(ClipData.newPlainText("Personal chat link", invite))
+                        Column(modifier = Modifier.heightIn(max = 112.dp).verticalScroll(savedChatListScroll)) {
+                            personalRooms.asReversed().forEach { savedRoom ->
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }, modifier = Modifier.weight(1f)) {
+                                        Text(savedRoom.removePrefix("personal-").removePrefix("private-").take(18))
                                     }
-                                ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy personal chat link") }
+                                    IconButton(
+                                        enabled = activeWebsite?.onionAddress?.isNotBlank() == true,
+                                        onClick = {
+                                            val invite = "http://${activeWebsite?.onionAddress}/chat/$savedRoom"
+                                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                                                .setPrimaryClip(ClipData.newPlainText("Personal chat link", invite))
+                                        }
+                                    ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy personal chat link") }
+                                }
                             }
                         }
                     }
@@ -121,19 +126,21 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     val groupRooms = rooms.filterNot { it.startsWith("personal-") || it.startsWith("private-") }
                     if (groupRooms.isNotEmpty()) {
                         Text("Your rooms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        groupRooms.takeLast(20).forEach { savedRoom ->
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }, modifier = Modifier.weight(1f)) {
-                                    Text(savedRoom.removePrefix("room-"))
-                                }
-                                IconButton(
-                                    enabled = activeWebsite?.onionAddress?.isNotBlank() == true,
-                                    onClick = {
-                                        val invite = "http://${activeWebsite?.onionAddress}/chat/$savedRoom"
-                                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                                            .setPrimaryClip(ClipData.newPlainText("Room link", invite))
+                        Column(modifier = Modifier.heightIn(max = 112.dp).verticalScroll(savedChatListScroll)) {
+                            groupRooms.asReversed().forEach { savedRoom ->
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }, modifier = Modifier.weight(1f)) {
+                                        Text(savedRoom.removePrefix("room-"))
                                     }
-                                ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy room link") }
+                                    IconButton(
+                                        enabled = activeWebsite?.onionAddress?.isNotBlank() == true,
+                                        onClick = {
+                                            val invite = "http://${activeWebsite?.onionAddress}/chat/$savedRoom"
+                                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                                                .setPrimaryClip(ClipData.newPlainText("Room link", invite))
+                                        }
+                                    ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy room link") }
+                                }
                             }
                         }
                     }
@@ -151,24 +158,25 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     .fillMaxSize()
                     .padding(12.dp)
             ) {
-                Column(
+                LazyColumn(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    reverseLayout = true
                 ) {
                     if (activeWebsite == null) {
-                        ChatEmptyState("No active host", "Go to Home, choose content, and start hosting first.")
+                        item { ChatEmptyState("No active host", "Go to Home, choose content, and start hosting first.") }
                     } else if (!isChatInSelectedTab) {
-                        ChatEmptyState(
+                        item { ChatEmptyState(
                             if (chatTab == 0) "Select a personal chat" else "Select or create a room",
                             if (chatTab == 0) "Personal conversations stay separate from room conversations." else "Room conversations stay separate from personal chats."
-                        )
+                        ) }
                     } else if (messages.isEmpty()) {
-                        ChatEmptyState("No messages yet", "Copy this chat's link above and share it. Incoming messages will appear here.")
+                        item { ChatEmptyState("No messages yet", "Copy this chat's link above and share it. Incoming messages will appear here.") }
                     } else {
-                        messages.takeLast(100).forEach { message ->
+                        items(messages.asReversed(), key = { it.id }) { message ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
