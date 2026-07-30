@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +56,19 @@ fun HomeScreen(
     ) { uri: Uri? ->
         uri?.let {
             viewModel.importAndHost(context, it, WebsiteType.FOLDER)
+        }
+    }
+
+    val qrDownloadLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { uri: Uri? ->
+        val address = activeWebsite?.onionAddress.orEmpty()
+        val bitmap = if (address.isBlank()) null else "http://$address".generateQrCodeBitmap()
+        if (uri != null && bitmap != null) {
+            val saved = context.contentResolver.openOutputStream(uri)?.use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            } == true
+            Toast.makeText(context, if (saved) "QR code saved" else "Could not save QR code", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -255,11 +269,20 @@ fun HomeScreen(
                             ) {
                                 Image(
                                     bitmap = qrBitmap.asImageBitmap(),
-                                    contentDescription = "Onion Address QR",
+                                    contentDescription = "Onion Address QR — tap to download",
                                     modifier = Modifier
                                         .size(160.dp)
                                         .clip(RoundedCornerShape(8.dp))
+                                        .clickable { qrDownloadLauncher.launch("onionhost-qr.png") }
                                 )
+                            }
+                            TextButton(
+                                onClick = { qrDownloadLauncher.launch("onionhost-qr.png") },
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Download QR Code")
                             }
                         }
                     }

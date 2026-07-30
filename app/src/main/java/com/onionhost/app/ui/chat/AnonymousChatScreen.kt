@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -107,18 +108,24 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     if (groupRooms.isNotEmpty()) {
                         Text("Your rooms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         groupRooms.takeLast(20).forEach { savedRoom ->
-                            TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }) {
-                                Text(savedRoom.removePrefix("room-"))
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }, modifier = Modifier.weight(1f)) {
+                                    Text(savedRoom.removePrefix("room-"))
+                                }
+                                IconButton(
+                                    enabled = activeWebsite?.onionAddress?.isNotBlank() == true,
+                                    onClick = {
+                                        val invite = "http://${activeWebsite?.onionAddress}/chat/$savedRoom"
+                                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                                            .setPrimaryClip(ClipData.newPlainText("Room link", invite))
+                                    }
+                                ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy room link") }
                             }
                         }
                     }
                 }
-                if (activeRoom.isNotBlank() && activeWebsite?.onionAddress?.isNotBlank() == true) {
+                if (activeRoom.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(onClick = {
-                        val invite = "http://${activeWebsite?.onionAddress}/chat/$activeRoom"
-                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Anonymous Chat Invite", invite))
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Copy active chat link") }
                     TextButton(onClick = { viewModel.deleteActiveChatRoom() }) { Text("Delete active chat") }
                 }
             }
