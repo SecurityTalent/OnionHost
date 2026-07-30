@@ -10,6 +10,9 @@
 *.aar
 *.klib
 local.properties
+keystore.properties
+*.jks
+*.keystore
 .DS_Store
 .externalNativeBuild
 .cxx

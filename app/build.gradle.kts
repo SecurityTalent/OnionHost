@@ -1,9 +1,20 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
 }
+
+val releaseProperties = Properties()
+val releasePropertiesFile = rootProject.file("keystore.properties")
+if (releasePropertiesFile.exists()) {
+    releasePropertiesFile.inputStream().use(releaseProperties::load)
+}
+
+val hasReleaseSigning = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { releaseProperties.getProperty(it).isNullOrBlank().not() }
 
 android {
     namespace = "com.onionhost.app"
@@ -13,8 +24,8 @@ android {
         applicationId = "com.onionhost.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.1.0"
+        versionCode = 5
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -34,6 +45,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.create("production") {
+                    storeFile = rootProject.file(releaseProperties.getProperty("storeFile"))
+                    storePassword = releaseProperties.getProperty("storePassword")
+                    keyAlias = releaseProperties.getProperty("keyAlias")
+                    keyPassword = releaseProperties.getProperty("keyPassword")
+                }
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -70,6 +89,25 @@ android {
             excludes += "META-INF/io.netty.versions.properties"
         }
     }
+}
+
+tasks.register<Copy>("publishLatestApk") {
+    group = "distribution"
+    description = "Builds the current installable APK and publishes it at releases/OnionHost-latest.apk."
+    dependsOn("assembleDebug")
+    from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(rootProject.layout.projectDirectory.dir("releases"))
+    rename { "OnionHost-latest.apk" }
+}
+
+tasks.register<Copy>("publishProductionApk") {
+    group = "distribution"
+    description = "Builds a signed production APK. Requires the untracked keystore.properties file."
+    onlyIf { hasReleaseSigning }
+    dependsOn("assembleRelease")
+    from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+    into(rootProject.layout.projectDirectory.dir("releases"))
+    rename { "OnionHost-latest.apk" }
 }
 
 dependencies {
