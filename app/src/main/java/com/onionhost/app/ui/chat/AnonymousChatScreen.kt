@@ -42,6 +42,8 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
     var roomName by rememberSaveable { mutableStateOf("") }
     var chatTab by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
+    val isPersonalChat = activeRoom.startsWith("personal-") || activeRoom.startsWith("private-")
+    val isChatInSelectedTab = (chatTab == 0 && isPersonalChat) || (chatTab == 1 && !isPersonalChat && activeRoom.isNotBlank())
     val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { viewModel.sendChatAttachment(context, draft, it); draft = "" }
     }
@@ -92,7 +94,19 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     if (personalRooms.isNotEmpty()) {
                         Text("Saved personal chats", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         personalRooms.takeLast(4).forEach { savedRoom ->
-                            TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }) { Text(savedRoom.removePrefix("personal-").removePrefix("private-").take(18)) }
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }, modifier = Modifier.weight(1f)) {
+                                    Text(savedRoom.removePrefix("personal-").removePrefix("private-").take(18))
+                                }
+                                IconButton(
+                                    enabled = activeWebsite?.onionAddress?.isNotBlank() == true,
+                                    onClick = {
+                                        val invite = "http://${activeWebsite?.onionAddress}/chat/$savedRoom"
+                                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                                            .setPrimaryClip(ClipData.newPlainText("Personal chat link", invite))
+                                    }
+                                ) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy personal chat link") }
+                            }
                         }
                     }
                 } else {
@@ -124,7 +138,7 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                         }
                     }
                 }
-                if (activeRoom.isNotBlank()) {
+                if (activeRoom.isNotBlank() && isChatInSelectedTab) {
                     Spacer(modifier = Modifier.height(8.dp))
                     TextButton(onClick = { viewModel.deleteActiveChatRoom() }) { Text("Delete active chat") }
                 }
@@ -146,6 +160,11 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                 ) {
                     if (activeWebsite == null) {
                         ChatEmptyState("No active host", "Go to Home, choose content, and start hosting first.")
+                    } else if (!isChatInSelectedTab) {
+                        ChatEmptyState(
+                            if (chatTab == 0) "Select a personal chat" else "Select or create a room",
+                            if (chatTab == 0) "Personal conversations stay separate from room conversations." else "Room conversations stay separate from personal chats."
+                        )
                     } else if (messages.isEmpty()) {
                         ChatEmptyState("No messages yet", "Copy this chat's link above and share it. Incoming messages will appear here.")
                     } else {
@@ -177,14 +196,14 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Write a reply…") },
                         singleLine = true,
-                        enabled = activeWebsite != null && !actionInProgress
+                        enabled = activeWebsite != null && isChatInSelectedTab && !actionInProgress
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { attachmentPicker.launch("*/*") }, enabled = activeWebsite != null && !actionInProgress) {
+                    IconButton(onClick = { attachmentPicker.launch("*/*") }, enabled = activeWebsite != null && isChatInSelectedTab && !actionInProgress) {
                         Icon(Icons.Default.AttachFile, contentDescription = "Attach photo, video, or audio")
                     }
                     IconButton(
-                        enabled = activeWebsite != null && draft.isNotBlank() && !actionInProgress,
+                        enabled = activeWebsite != null && isChatInSelectedTab && draft.isNotBlank() && !actionInProgress,
                         onClick = {
                             viewModel.sendChatMessage(draft)
                             draft = ""
