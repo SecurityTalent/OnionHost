@@ -41,7 +41,7 @@ class HomeViewModel @Inject constructor(
 
     private val selectedChatRoom = MutableStateFlow("")
     val activeChatRoom: StateFlow<String> = combine(activeWebsite, selectedChatRoom) { website, selected ->
-        selected.ifBlank { website?.id.orEmpty() }
+        selected.ifBlank { website?.id?.let { "personal-$it" }.orEmpty() }
     }.stateIn(viewModelScope, SharingStarted.Lazily, "")
 
     val chatMessages: StateFlow<List<AnonymousChatStore.Message>> = activeChatRoom
@@ -118,7 +118,11 @@ class HomeViewModel @Inject constructor(
         selectedChatRoom.value = name.lowercase().filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(80)
     }
 
-    fun createPrivateChatRoom() { selectedChatRoom.value = "private-${UUID.randomUUID()}" }
+    fun createPrivateChatRoom() { selectedChatRoom.value = "personal-${UUID.randomUUID()}" }
+    fun createRoom(name: String) {
+        val cleanName = name.lowercase().filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(70)
+        if (cleanName.isNotBlank()) selectedChatRoom.value = "room-$cleanName"
+    }
     fun deleteActiveChatRoom() {
         activeChatRoom.value.takeIf { it.isNotBlank() }?.let(AnonymousChatStore::deleteRoom)
         selectedChatRoom.value = ""

@@ -27,11 +27,16 @@ object AnonymousChatStore {
     fun initialize(context: Context) {
         if (storageFile != null) return
         storageFile = File(context.filesDir, "anonymous_chat.json")
-        val file = storageFile ?: return
-        if (!file.exists()) return
-        try {
-            val root = JSONObject(file.readText())
-            val savedRooms = root.optJSONObject("rooms") ?: return
+        val primary = storageFile ?: return
+        // Keep a second local copy.  A restart must never discard a conversation
+        // just because Android was interrupted while replacing the primary file.
+        val files = listOf(primary, File(primary.parentFile, "${primary.name}.bak"))
+        for (file in files) {
+            if (!file.exists()) continue
+            try {
+                rooms.clear()
+                val root = JSONObject(file.readText())
+                val savedRooms = root.optJSONObject("rooms") ?: continue
             var largestId = 0L
             savedRooms.keys().forEach { room ->
                 val savedMessages = savedRooms.optJSONArray(room) ?: return@forEach
@@ -40,15 +45,21 @@ object AnonymousChatStore {
                     val item = savedMessages.getJSONObject(index)
                     val attachmentJson = item.optJSONObject("attachment")
                     val attachment = attachmentJson?.let { Attachment(it.optString("data"), it.optString("name"), it.optString("type")) }
-                    val message = Message(item.getLong("id"), item.optString("text"), item.getLong("sentAt"), item.optString("ownerId").ifBlank { null }, attachment)
+                    val ownerId = item.optString("ownerId").ifBlank { null }
+                    val message = Message(
+                        item.getLong("id"), item.optString("text"), item.getLong("sentAt"), ownerId,
+                        attachment, item.optString("sender").ifBlank { if (ownerId == null) "Host" else anonymousName(ownerId) }
+                    )
                     restored += message
                     largestId = maxOf(largestId, message.id)
                 }
                 rooms[room] = restored
             }
             nextMessageId.set(largestId)
-        } catch (_: Exception) {
-            // Keep hosting usable if a previous interrupted write is unreadable.
+                return
+            } catch (_: Exception) {
+                // Try the backup before starting a clean in-memory archive.
+            }
         }
     }
 
@@ -104,15 +115,21 @@ object AnonymousChatStore {
             rooms.forEach { (room, messages) ->
                 val array = JSONArray()
                 messages.forEach { message ->
-                    val item = JSONObject().put("id", message.id).put("text", message.text).put("sentAt", message.sentAt).put("ownerId", message.ownerId ?: "")
+                    val item = JSONObject().put("id", message.id).put("text", message.text).put("sentAt", message.sentAt)
+                        .put("ownerId", message.ownerId ?: "").put("sender", message.sender)
                     message.attachment?.let { item.put("attachment", JSONObject().put("data", it.dataUrl).put("name", it.name).put("type", it.mimeType)) }
                     array.put(item)
                 }
                 savedRooms.put(room, array)
             }
             val temporary = File(file.parentFile, "${file.name}.tmp")
-            temporary.writeText(JSONObject().put("rooms", savedRooms).toString())
-            if (!temporary.renameTo(file)) { file.writeText(temporary.readText()); temporary.delete() }
+            val backup = File(file.parentFile, "${file.name}.bak")
+            val payload = JSONObject().put("rooms", savedRooms).toString()
+            temporary.writeText(payload)
+            // Write the backup first; if the app is stopped at any point there is
+            // always a complete JSON archive available for the next launch.
+            backup.writeText(payload)
+            if (!temporary.renameTo(file)) { file.writeText(payload); temporary.delete() }
         } catch (_: Exception) { }
     }
 

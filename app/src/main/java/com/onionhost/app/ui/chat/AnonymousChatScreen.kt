@@ -37,6 +37,7 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
     val actionInProgress by viewModel.chatActionInProgress.collectAsState()
     var draft by rememberSaveable { mutableStateOf("") }
     var roomName by rememberSaveable { mutableStateOf("") }
+    var chatTab by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
     val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { viewModel.sendChatAttachment(context, draft, it); draft = "" }
@@ -64,37 +65,46 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
         Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text("Create or join a room", fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = roomName,
-                        onValueChange = { roomName = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("e.g. friends or private-alice") },
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = { viewModel.selectChatRoom(roomName) }, enabled = activeWebsite != null && roomName.isNotBlank()) { Text("Open") }
+                TabRow(selectedTabIndex = chatTab) {
+                    listOf("Personal chat", "Rooms").forEachIndexed { index, title ->
+                        Tab(selected = chatTab == index, onClick = { chatTab = index }, text = { Text(title) })
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                if (chatTab == 0) {
+                    Text("One-to-one chat", fontWeight = FontWeight.SemiBold)
+                    Text("Create a private link and share it with one person.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(onClick = { viewModel.createPrivateChatRoom() }, enabled = activeWebsite != null, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Lock, null); Spacer(Modifier.width(6.dp)); Text("New personal chat link")
+                    }
+                    val personalRooms = rooms.filter { it.startsWith("personal-") || it.startsWith("private-") }
+                    if (personalRooms.isNotEmpty()) {
+                        Text("Saved personal chats", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        personalRooms.takeLast(4).forEach { savedRoom ->
+                            TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }) { Text(savedRoom.removePrefix("personal-").removePrefix("private-").take(18)) }
+                        }
+                    }
+                } else {
+                    Text("Group rooms", fontWeight = FontWeight.SemiBold)
+                    Text("Everyone with the same room link can chat together.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(value = roomName, onValueChange = { roomName = it }, modifier = Modifier.weight(1f), placeholder = { Text("e.g. friends") }, singleLine = true)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(onClick = { viewModel.createRoom(roomName); roomName = "" }, enabled = activeWebsite != null && roomName.isNotBlank()) { Text("Create") }
+                    }
+                    val groupRooms = rooms.filterNot { it.startsWith("personal-") || it.startsWith("private-") }
+                    if (groupRooms.isNotEmpty()) Text("Saved rooms: ${groupRooms.joinToString().take(100)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (activeRoom.isNotBlank() && activeWebsite?.onionAddress?.isNotBlank() == true) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            val invite = "http://${activeWebsite?.onionAddress}/chat/$activeRoom"
-                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                                .setPrimaryClip(ClipData.newPlainText("Anonymous Chat Invite", invite))
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Copy invite for this room") }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { viewModel.createPrivateChatRoom() }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Default.Lock, null); Spacer(Modifier.width(6.dp)); Text("New private room")
-                        }
-                        TextButton(onClick = { viewModel.deleteActiveChatRoom() }) { Text("Delete room") }
-                    }
+                    OutlinedButton(onClick = {
+                        val invite = "http://${activeWebsite?.onionAddress}/chat/$activeRoom"
+                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Anonymous Chat Invite", invite))
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Copy active chat link") }
+                    TextButton(onClick = { viewModel.deleteActiveChatRoom() }) { Text("Delete active chat") }
                 }
-                if (rooms.isNotEmpty()) Text("Saved rooms: ${rooms.joinToString().take(100)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
