@@ -245,26 +245,6 @@ fun HomeScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                val inviteUrl = "http://${website.onionAddress}/chat/${website.id}"
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Anonymous Chat Invite", inviteUrl))
-                                Toast.makeText(context, "Anonymous chat invite copied!", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Chat, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Copy Anonymous Chat Invite")
-                        }
-                        Text(
-                            "This copies the group-chat invite. The QR code below is for the website server.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
                         // QR Code display
                         "http://${website.onionAddress}".generateQrCodeBitmap()?.let { qrBitmap ->
                             Spacer(modifier = Modifier.height(16.dp))

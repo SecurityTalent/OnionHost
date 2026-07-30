@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
     val messages by viewModel.chatMessages.collectAsState()
     val rooms by viewModel.chatRooms.collectAsState()
     val actionInProgress by viewModel.chatActionInProgress.collectAsState()
+    val activeUsers by viewModel.activeChatUsers.collectAsState()
     var draft by rememberSaveable { mutableStateOf("") }
     var roomName by rememberSaveable { mutableStateOf("") }
     var chatTab by rememberSaveable { mutableStateOf(0) }
@@ -59,6 +61,13 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (activeWebsite != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(if (activeUsers > 0) Color(0xFF32D583) else MaterialTheme.colorScheme.outline))
+                        Spacer(Modifier.width(5.dp))
+                        Text(if (activeUsers > 0) "$activeUsers user active" else "No user active", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
 
@@ -95,7 +104,14 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                         Button(onClick = { viewModel.createRoom(roomName); roomName = "" }, enabled = activeWebsite != null && roomName.isNotBlank()) { Text("Create") }
                     }
                     val groupRooms = rooms.filterNot { it.startsWith("personal-") || it.startsWith("private-") }
-                    if (groupRooms.isNotEmpty()) Text("Saved rooms: ${groupRooms.joinToString().take(100)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (groupRooms.isNotEmpty()) {
+                        Text("Your rooms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        groupRooms.takeLast(20).forEach { savedRoom ->
+                            TextButton(onClick = { viewModel.selectChatRoom(savedRoom) }) {
+                                Text(savedRoom.removePrefix("room-"))
+                            }
+                        }
+                    }
                 }
                 if (activeRoom.isNotBlank() && activeWebsite?.onionAddress?.isNotBlank() == true) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -124,7 +140,7 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                     if (activeWebsite == null) {
                         ChatEmptyState("No active host", "Go to Home, choose content, and start hosting first.")
                     } else if (messages.isEmpty()) {
-                        ChatEmptyState("No messages yet", "Share the Anonymous Chat Invite from Home. Incoming messages will appear here.")
+                        ChatEmptyState("No messages yet", "Copy this chat's link above and share it. Incoming messages will appear here.")
                     } else {
                         messages.takeLast(100).forEach { message ->
                             Row(

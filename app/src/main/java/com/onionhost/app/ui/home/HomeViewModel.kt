@@ -52,6 +52,9 @@ class HomeViewModel @Inject constructor(
 
     val chatRooms: StateFlow<List<String>> = AnonymousChatStore.roomNamesFlow()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val activeChatUsers: StateFlow<Int> = activeChatRoom.flatMapLatest { room ->
+        if (room.isBlank()) flowOf(0) else AnonymousChatStore.activeClientCountFlow(room)
+    }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
     private val _chatActionInProgress = MutableStateFlow(false)
     val chatActionInProgress: StateFlow<Boolean> = _chatActionInProgress.asStateFlow()
 
@@ -118,10 +121,16 @@ class HomeViewModel @Inject constructor(
         selectedChatRoom.value = name.lowercase().filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(80)
     }
 
-    fun createPrivateChatRoom() { selectedChatRoom.value = "personal-${UUID.randomUUID()}" }
+    fun createPrivateChatRoom() {
+        selectedChatRoom.value = "personal-${UUID.randomUUID()}"
+        AnonymousChatStore.ensureRoom(selectedChatRoom.value)
+    }
     fun createRoom(name: String) {
         val cleanName = name.lowercase().filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(70)
-        if (cleanName.isNotBlank()) selectedChatRoom.value = "room-$cleanName"
+        if (cleanName.isNotBlank()) {
+            selectedChatRoom.value = "room-$cleanName"
+            AnonymousChatStore.ensureRoom(selectedChatRoom.value)
+        }
     }
     fun deleteActiveChatRoom() {
         activeChatRoom.value.takeIf { it.isNotBlank() }?.let(AnonymousChatStore::deleteRoom)

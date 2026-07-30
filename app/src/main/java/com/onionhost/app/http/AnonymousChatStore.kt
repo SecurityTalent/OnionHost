@@ -21,6 +21,8 @@ object AnonymousChatStore {
     // random IDs caused valid newer messages to be skipped by polling clients.
     private val nextMessageId = AtomicLong(0)
     private val changes = MutableStateFlow(0L)
+    private val presenceChanges = MutableStateFlow(0L)
+    private val activeClients = ConcurrentHashMap<String, Long>()
     private var storageFile: File? = null
 
     @Synchronized
@@ -78,6 +80,13 @@ object AnonymousChatStore {
         return message
     }
 
+    fun ensureRoom(room: String) {
+        if (rooms.putIfAbsent(room, CopyOnWriteArrayList()) == null) {
+            persist()
+            changes.value += 1
+        }
+    }
+
     fun since(room: String, after: Long): List<Message> =
         rooms[room].orEmpty().filter { it.id > after }.sortedBy { it.sentAt }
 
@@ -87,6 +96,18 @@ object AnonymousChatStore {
 
     fun messagesFlow(room: String): Flow<List<Message>> = changes.map { messages(room) }
     fun roomNamesFlow(): Flow<List<String>> = changes.map { roomNames() }
+    fun activeClientCountFlow(room: String): Flow<Int> = presenceChanges.map { activeClientCount(room) }
+
+    fun touchClient(room: String, clientId: String) {
+        activeClients["$room:$clientId"] = System.currentTimeMillis()
+        presenceChanges.value += 1
+    }
+
+    fun activeClientCount(room: String): Int {
+        val cutoff = System.currentTimeMillis() - ACTIVE_CLIENT_WINDOW_MS
+        activeClients.entries.removeIf { it.value < cutoff }
+        return activeClients.entries.count { it.key.startsWith("$room:") }
+    }
 
     fun deleteByOwner(room: String, id: Long, ownerId: String): Boolean =
         delete(room) { it.id == id && it.ownerId == ownerId }
@@ -136,4 +157,5 @@ object AnonymousChatStore {
     const val MAX_MESSAGE_LENGTH = 1_000
     const val MAX_ATTACHMENT_CHARS = 7_000_000
     private const val MAX_MESSAGES_PER_ROOM = 200
+    private const val ACTIVE_CLIENT_WINDOW_MS = 15_000L
 }
