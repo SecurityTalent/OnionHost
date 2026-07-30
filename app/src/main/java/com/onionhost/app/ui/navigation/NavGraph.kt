@@ -52,23 +52,18 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
     Scaffold(
         bottomBar = {
             NavigationBar {
                 navItems.forEach { screen ->
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        // Six destinations fit comfortably on a phone only as
-                        // icons. The previous labels were wrapping/clipping.
                         label = null,
                         alwaysShowLabel = false,
                         selected = currentRoute == screen.route,
                         onClick = {
                             navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -112,4 +107,5 @@ fun AppNavigation() {
             }
         }
     }
+
 }

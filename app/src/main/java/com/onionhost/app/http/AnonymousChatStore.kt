@@ -72,12 +72,21 @@ object AnonymousChatStore {
 
     fun messages(room: String): List<Message> = rooms[room].orEmpty().sortedBy { it.sentAt }
 
+    fun roomNames(): List<String> = rooms.keys().toList().sorted()
+
     fun messagesFlow(room: String): Flow<List<Message>> = changes.map { messages(room) }
+    fun roomNamesFlow(): Flow<List<String>> = changes.map { roomNames() }
 
     fun deleteByOwner(room: String, id: Long, ownerId: String): Boolean =
         delete(room) { it.id == id && it.ownerId == ownerId }
 
     fun deleteByHost(room: String, id: Long): Boolean = delete(room) { it.id == id }
+
+    fun deleteRoom(room: String): Boolean {
+        val removed = rooms.remove(room) != null
+        if (removed) { persist(); changes.value += 1 }
+        return removed
+    }
 
     private fun delete(room: String, predicate: (Message) -> Boolean): Boolean {
         val result = rooms[room]?.removeIf(predicate) == true

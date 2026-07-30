@@ -3,6 +3,9 @@ package com.onionhost.app.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,9 +33,14 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
     val activeWebsite by viewModel.activeWebsite.collectAsState()
     val activeRoom by viewModel.activeChatRoom.collectAsState()
     val messages by viewModel.chatMessages.collectAsState()
+    val rooms by viewModel.chatRooms.collectAsState()
+    val actionInProgress by viewModel.chatActionInProgress.collectAsState()
     var draft by rememberSaveable { mutableStateOf("") }
     var roomName by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
+    val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { viewModel.sendChatAttachment(context, draft, it); draft = "" }
+    }
 
     Column(
         modifier = Modifier
@@ -77,7 +87,14 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Copy invite for this room") }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { viewModel.createPrivateChatRoom() }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.Lock, null); Spacer(Modifier.width(6.dp)); Text("New private room")
+                        }
+                        TextButton(onClick = { viewModel.deleteActiveChatRoom() }) { Text("Delete room") }
+                    }
                 }
+                if (rooms.isNotEmpty()) Text("Saved rooms: ${rooms.joinToString().take(100)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -112,7 +129,7 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                                     if (message.text.isNotBlank()) Text(message.text, style = MaterialTheme.typography.bodyMedium)
                                     message.attachment?.let { Text("Attachment: ${it.name}", style = MaterialTheme.typography.labelSmall) }
                                 }
-                                IconButton(onClick = { viewModel.deleteChatMessage(message.id) }) {
+                                IconButton(onClick = { viewModel.deleteChatMessage(message.id) }, enabled = !actionInProgress) {
                                     Icon(Icons.Default.Delete, contentDescription = "Delete message")
                                 }
                             }
@@ -127,19 +144,24 @@ fun AnonymousChatScreen(viewModel: HomeViewModel) {
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Write a reply…") },
                         singleLine = true,
-                        enabled = activeWebsite != null
+                        enabled = activeWebsite != null && !actionInProgress
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { attachmentPicker.launch("*/*") }, enabled = activeWebsite != null && !actionInProgress) {
+                        Icon(Icons.Default.AttachFile, contentDescription = "Attach photo, video, or audio")
+                    }
                     IconButton(
-                        enabled = activeWebsite != null && draft.isNotBlank(),
+                        enabled = activeWebsite != null && draft.isNotBlank() && !actionInProgress,
                         onClick = {
                             viewModel.sendChatMessage(draft)
                             draft = ""
                         }
                     ) {
-                        Icon(Icons.Default.Send, contentDescription = "Send message")
+                        if (actionInProgress) CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Default.Send, contentDescription = "Send message")
                     }
                 }
+                if (actionInProgress) Text("Sending or updating chat…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

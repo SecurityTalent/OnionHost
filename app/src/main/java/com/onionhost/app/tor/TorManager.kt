@@ -226,27 +226,15 @@ class TorManager(private val context: Context) {
         } else if (line.contains("Bootstrapped")) {
             val match = Regex("Bootstrapped (\\d+)%").find(line)
             val percent = match?.groupValues?.get(1)?.toIntOrNull() ?: 50
-            val hostname = readOnionHostname()
-
-            // Tor writes the v3 hostname after it has accepted HiddenServiceDir.
-            // Waiting for a particular human-readable upload log line meant that
-            // a fully bootstrapped daemon could remain at 100% forever without
-            // saving its address or rendering the QR code.  Once Tor is 100%
-            // bootstrapped, expose its valid address immediately; descriptor
-            // propagation continues in the background and may take a short time.
-            if (percent >= 100 && hostname.isNotBlank()) {
-                isTorPublished = true
-                _torStatus.value = TorStatus(
-                    state = TorState.RUNNING,
-                    bootstrapProgress = 100,
-                    onionAddress = hostname
-                )
-                emitLog("Tor bootstrapped; onion address is ready: http://$hostname/")
-            } else {
-                _torStatus.value = TorStatus(
-                    state = TorState.BOOTSTRAPPING,
-                    bootstrapProgress = percent
-                )
+            // A hostname file is created locally before the hidden-service
+            // descriptor becomes reachable. Do not advertise it as live until
+            // Tor confirms that the descriptor was uploaded to the network.
+            _torStatus.value = TorStatus(
+                state = TorState.BOOTSTRAPPING,
+                bootstrapProgress = percent
+            )
+            if (percent >= 100) {
+                emitLog("Tor is connected; waiting for Onion Service descriptor publication before sharing the address.")
             }
         }
     }

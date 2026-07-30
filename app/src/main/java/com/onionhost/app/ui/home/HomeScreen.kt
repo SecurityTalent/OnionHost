@@ -121,6 +121,10 @@ fun HomeScreen(
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
+            val statusTextColor = when (torStatus.state) {
+                TorState.RUNNING, TorState.BOOTSTRAPPING, TorState.STARTING, TorState.ERROR -> Color.White
+                TorState.STOPPED -> MaterialTheme.colorScheme.onSurface
+            }
             Column(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -149,7 +153,7 @@ fun HomeScreen(
                     },
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = statusTextColor
                 )
 
                 if (torStatus.state == TorState.BOOTSTRAPPING) {
