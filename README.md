@@ -195,6 +195,20 @@ endorse or authorize unlawful use of the software.
 
 ## License
 
-The app identifies itself as MIT-licensed. Add a complete `LICENSE` file before public distribution.
+OnionHost is **not** released under an unrestricted MIT or Apache license. It
+uses the repository's [OnionHost Source-Available License](LICENSE):
+
+- Do not copy, publish, redistribute, modify, fork as a separate product, or
+  use this project commercially without prior written permission from
+  Security Talent.
+- Contributions are welcome through issues and pull requests. Contributors
+  retain copyright in their original work while granting the project the
+  rights needed to use the contribution in official OnionHost releases.
+- Unauthorized use may lead to copyright takedown requests or other remedies
+  available under applicable law.
+
+This is a custom license, not legal advice. If you need strong enforcement or
+plan to distribute the project, have the license reviewed by a lawyer in the
+relevant jurisdiction.
 
 Created by [Security Talent](https://securitytalent.net).
